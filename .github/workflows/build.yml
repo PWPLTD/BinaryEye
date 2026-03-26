@@ -35,8 +35,13 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Remove release signing config
+        run: |
+          sed -i 's/signingConfig signingConfigs.release//g' app/build.gradle
+
       - name: Build unsigned release APK
-        run: ./gradlew assembleRelease -Pandroid.injected.signing.store.file=/dev/null
+        run: ./gradlew assembleRelease
+
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
