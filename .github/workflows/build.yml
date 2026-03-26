@@ -42,6 +42,13 @@ jobs:
       - name: Build unsigned release APK
         run: ./gradlew assembleRelease
 
+      - name: Extract versionName
+        id: version
+        run: |
+          VERSION=$(grep versionName app/build.gradle | sed 's/[^0-9.]//g')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -53,6 +60,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/odk-support'
         with:
-          tag_name: auto-build-${{ github.run_number }}
-          name: Automated Build ${{ github.run_number }}
+          tag_name: ${{ steps.version.outputs.version }}-odk
+          name: BinaryEye ${{ steps.version.outputs.version }} (ODK build)
           files: app/build/outputs/apk/release/*.apk
+
