@@ -1,0 +1,53 @@
+name: Build ODK-Compatible BinaryEye
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"   # Every Monday at 03:00 UTC
+  workflow_dispatch:       # Allow manual runs
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          ref: odk-support
+          fetch-depth: 0
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/markusfisch/BinaryEye.git
+          git fetch upstream
+
+      - name: Rebase odk-support onto upstream/main
+        run: |
+          git checkout odk-support
+          git rebase upstream/main || true
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build APK
+        run: ./gradlew assembleRelease
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BinaryEye-ODK
+          path: app/build/outputs/apk/release/*.apk
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/odk-support'
+        with:
+          tag_name: auto-build-${{ github.run_number }}
+          name: Automated Build ${{ github.run_number }}
+          files: app/build/outputs/apk/release/*.apk
