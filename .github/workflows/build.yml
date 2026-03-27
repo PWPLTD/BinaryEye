@@ -66,16 +66,21 @@ jobs:
               --out "${apk%.apk}-signed.apk" \
               "$apk"
           done
+
+      - name: Rename signed APK
+        run: |
+          mv app/build/outputs/apk/release/*-signed.apk "app/build/outputs/apk/release/BinaryEye-ODK-${{ steps.version.outputs.version }}.apk"
+
       - name: Verify signature
         run: |
-          for apk in app/build/outputs/apk/release/*-signed.apk; do
+          for apk in app/build/outputs/apk/release/BinaryEye-ODK-*.apk; do
             "$APKSIGNER" verify "$apk"
           done
       - name: Upload signed APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: BinaryEye-ODK
-          path: app/build/outputs/apk/release/*-signed.apk
+          path: app/build/outputs/apk/release/BinaryEye-ODK-*.apk
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -83,4 +88,4 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.version }}-odk
           name: BinaryEye ${{ steps.version.outputs.version }} (ODK build)
-          files: app/build/outputs/apk/release/*-signed.apk
+          files: app/build/outputs/apk/release/BinaryEye-ODK-*.apk
