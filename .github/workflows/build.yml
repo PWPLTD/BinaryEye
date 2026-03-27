@@ -20,12 +20,10 @@ jobs:
         run: |
           git remote add upstream https://github.com/markusfisch/BinaryEye.git
           git fetch upstream
-
       - name: Rebase odk-support onto upstream/main
         run: |
           git checkout odk-support
           git rebase upstream/main || true
-
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -35,10 +33,18 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Resolve apksigner path
+        run: |
+          APKSIGNER=$(find "$ANDROID_SDK_ROOT/build-tools" -name apksigner -type f | sort -V | tail -n1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "Could not find apksigner in Android SDK build-tools"
+            exit 1
+          fi
+          echo "APKSIGNER=$APKSIGNER" >> "$GITHUB_ENV"
+
       - name: Remove release signing config
         run: |
           sed -i 's/signingConfig signingConfigs.release//g' app/build.gradle
-
       - name: Build release APK (unsigned)
         run: ./gradlew assembleRelease
 
@@ -47,7 +53,6 @@ jobs:
         run: |
           VERSION=$(grep versionName app/build.gradle | sed 's/[^0-9.]//g')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-
       - name: Generate temporary signing key
         run: |
           keytool -genkeypair \
@@ -59,24 +64,21 @@ jobs:
             -storepass password \
             -keypass password \
             -dname "CN=BinaryEye-ODK"
-
       - name: Sign APK
         run: |
           for apk in app/build/outputs/apk/release/*.apk; do
-            apksigner sign \
+            "$APKSIGNER" sign \
               --ks temp.keystore \
               --ks-pass pass:password \
               --key-pass pass:password \
               --out "${apk%.apk}-signed.apk" \
               "$apk"
           done
-
       - name: Verify signature
         run: |
           for apk in app/build/outputs/apk/release/*-signed.apk; do
-            apksigner verify "$apk"
+            "$APKSIGNER" verify "$apk"
           done
-
       - name: Upload signed APK artifact
         uses: actions/upload-artifact@v4
         with:
