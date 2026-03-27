@@ -2,8 +2,8 @@ name: Build ODK-Compatible BinaryEye
 
 on:
   schedule:
-    - cron: "0 3 * * 1"   # Every Monday at 03:00 UTC
-  workflow_dispatch:       # Allow manual runs
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -39,7 +39,7 @@ jobs:
         run: |
           sed -i 's/signingConfig signingConfigs.release//g' app/build.gradle
 
-      - name: Build unsigned release APK
+      - name: Build release APK (unsigned)
         run: ./gradlew assembleRelease
 
       - name: Extract versionName
@@ -48,13 +48,40 @@ jobs:
           VERSION=$(grep versionName app/build.gradle | sed 's/[^0-9.]//g')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Generate temporary signing key
+        run: |
+          keytool -genkeypair \
+            -alias tempkey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -keystore temp.keystore \
+            -storepass password \
+            -keypass password \
+            -dname "CN=BinaryEye-ODK"
 
+      - name: Sign APK
+        run: |
+          for apk in app/build/outputs/apk/release/*.apk; do
+            apksigner sign \
+              --ks temp.keystore \
+              --ks-pass pass:password \
+              --key-pass pass:password \
+              --out "${apk%.apk}-signed.apk" \
+              "$apk"
+          done
 
-      - name: Upload APK artifact
+      - name: Verify signature
+        run: |
+          for apk in app/build/outputs/apk/release/*-signed.apk; do
+            apksigner verify "$apk"
+          done
+
+      - name: Upload signed APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: BinaryEye-ODK
-          path: app/build/outputs/apk/release/*.apk
+          path: app/build/outputs/apk/release/*-signed.apk
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -62,5 +89,4 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.version }}-odk
           name: BinaryEye ${{ steps.version.outputs.version }} (ODK build)
-          files: app/build/outputs/apk/release/*.apk
-
+          files: app/build/outputs/apk/release/*-signed.apk
