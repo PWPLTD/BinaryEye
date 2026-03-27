@@ -1054,7 +1054,7 @@ private fun getReturnIntent(result: Result) = Intent().apply {
 		putExtra("SCAN_RESULT_BYTES", result.rawBytes)
 	}
 	// ODK support
-	putExtra("value", result.text)
+	putExtra("value", result.rawBytes.toHexString())
 }
 
 private fun completeUrl(urlTemplate: String, result: Result) = (
